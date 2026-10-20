@@ -1,53 +1,47 @@
-# PsychGym RL research scaffold
+# PsychGym RL and conversation research scaffold
 
-PsychGym is a small reinforcement-learning scaffold for experimenting with explicit reward design on authored, synthetic MFT-related scenarios. It is distinct from the existing Psychological World Model simulator under `scripts/psychgym/`, which studies abstract state dynamics.
+## What the conversation environment simulates
 
-## Scope
+`psychgym.conversation.ConversationEnv` provides multi-turn dialogues between an RL-controlled therapist-side agent and a scripted synthetic couple. Each scenario contains fictional partner profiles, an opening statement, context tags, a shared goal, and (in one case) a synthetic safety concern. The therapist chooses among bounded process actions. The simulator returns authored text templates, updates explicit state variables, calculates a reward, and records a turn-level trace.
 
-This environment is not a patient simulator, therapy policy, clinical decision aid, or measure of human psychology. It cannot establish clinical competence, licensure readiness, or an AMFTRB pass. Its reward measures compliance with the toy environment's declared checks, not real-world safety or quality of care.
+Available proxy state includes each partner's modeled distress, trust, openness, and participation plus couple-level alliance, agency, goal clarity, conflict activation, and safety-assessment status. Terminal outcomes record those proxies and reward totals. Rules are inspectable in `psychgym/conversation/env.py`.
 
-The first environment uses a finite action space and hand-authored state transitions. It does not call an LLM or perform online training. The Q-learning implementation is deliberately transparent and small enough to audit. Do not connect it to clinical systems or real patient data.
+These values are invented transition variables, not validated psychological measures. The partner response rules do not model the range or causal complexity of people, relationships, therapy, or treatment outcomes. Lower simulated distress or higher alliance is not evidence of treatment benefit.
 
-## Quick start
-
-From the repository root:
+## Train and inspect a conversation policy
 
 ```bash
-python3 -m psychgym.rl.q_learning --episodes 5000 --seed 7 --output artifacts/psychgym-qtable.json
-python3 -m psychgym.rl.evaluate artifacts/psychgym-qtable.json
+python -m psychgym.conversation.rl --episodes 12000 --seed 11 --output artifacts/conversation-qtable.json
 ```
 
-The first command saves a Q table and metadata; evaluation reports scenario-level synthetic task outcomes. The fixed scenario set is small and can be overfit, so evaluation is a code-path demonstration, not a meaningful measure of generalization.
+In Python, load the serialized table and run the greedy policy through the fixed scenario set:
 
-## Environment and reward
+```python
+import json
+from psychgym.conversation.rl import evaluate
 
-The observation includes a scenario prompt, action history, completed process checks, and remaining turns. The agent selects from a bounded enumerated action set. Rewards are inspectable and include:
+artifact = json.load(open("artifacts/conversation-qtable.json"))
+report = evaluate(artifact["q_table"])
+```
 
-- modest positive reward for declared safe process actions;
-- positive reward for completing scenario-specific checks;
-- penalties for explicitly unsafe or unsupported actions;
-- penalty for premature closure or repeated questioning.
+The result includes every simulated turn and terminal proxy values. The tabular baseline selects from a finite action set; therapist utterances are fixed templates. It is not LLM fine-tuning and does not generate natural clinical dialogue.
 
-Reward design is provisional. A high return only means the agent learned this toy reward. It does not mean the policy is safe, clinically sound, or suitable for practice. Future work must test reward hacking, missing-signal failures, distribution shifts, and adversarial cases before making even research claims.
+## Reward and transition assumptions
 
-## Scenario and corpus provenance
+The reward favors selected process actions (reflection, balanced participation, collaborative goals, interaction-cycle mapping, and direct safety assessment in the authored safety scenario). It penalizes directive advice, blame assignment, and dismissing a concern. State transitions are hand-authored and deterministic. This intentionally exposes the reward model for inspection, but creates a substantial risk of overfitting and reward hacking.
 
-Scenarios in `psychgym/rl/env.py` are synthetic drafts written for this project. They are not copied from AMFTRB sample, retired, recalled, or live exam questions. They do not use actual client material. Future question-bank items should follow [`AMFTRB_ORIGINAL_ITEM_CORPUS.md`](AMFTRB_ORIGINAL_ITEM_CORPUS.md) and carry authorship, source, reviewer, rights, version, and status fields.
+Before using RL results to support research claims, test alternative reward formulations, randomize profile parameters, create independently authored held-out scenarios, stress-test missing and conflicting cues, compare against simple baselines, and obtain review from qualified MFT experts. Human or clinical outcome claims require separate validated measures and appropriately governed studies.
 
-The [2027 AMFTRB Candidate Handbook](reference/AMFTRB-2027-Candidate-Handbook.pdf) is retained as a reference, not a question source. The handbook's candidate agreement identifies exam items as AMFTRB property, copyrighted, and restricted from copying or disclosure without prior written consent. Do not extract its sample questions into training data.
+## Separate components
 
-## Training loop limits
+- `psychgym.conversation`: turn-based scripted dialogue and proxy outcomes.
+- `psychgym.rl`: a simpler single-step/short-horizon process-choice toy.
+- `psychgym.pwm`: abstract Psychological World Model state dynamics.
 
-- The tabular agent is not an LLM fine-tuning pipeline. It learns action choices over the toy state representation.
-- The agent does not generate free-text clinical responses.
-- No client data, live clinical decisions, or secure exam materials belong in this environment.
-- Any future human evaluation or clinical study requires qualified oversight, an approved protocol where applicable, and appropriate privacy protections.
-- Report model/version, scenario set version, reward specification, seed, training budget, held-out evaluation procedure, and limitations.
+Do not conflate their simulations or claims.
 
-## Next milestones
+## Scope and data rules
 
-1. Have qualified MFT experts review and revise scenarios, checks, and reward signals.
-2. Add randomized scenario templates and hidden held-out cases authored independently of training data.
-3. Add baseline policies and metrics for unsafe action rate, check coverage, premature termination, and reward hacking.
-4. Run adversarial review of the reward and environment before expanding RL optimization.
-5. Keep clinical claims and credential language outside the scope of benchmark results.
+PsychGym is not a patient simulator, clinical decision aid, therapy policy, clinical training substitute, measure of human psychology, or evidence of treatment efficacy. It cannot establish competence, LMFT eligibility, licensure, or AMFTRB exam passage. Do not use real patient/client data or connect the simulator to live clinical systems.
+
+Scenarios are synthetic drafts and require qualified MFT review before meaningful evaluation. Do not copy AMFTRB sample, retired, recalled, or live items. Public availability does not establish reuse rights. Keep held-out scenarios separate from training and document authorship, source, reviewer, version, and rights metadata.
